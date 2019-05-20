@@ -1,12 +1,24 @@
 open util/ordering[Timestep]
 
+/* TODO:
+  * Add channel failure scenarios
+    - package dropping
+    - package reordering
+    - package duplication?
+    - package corruption?
+  * Which properties to check?
+    - data arrive in correct order
+    - no duplication of data
+    - no missing data
+*/
+
 // Signatures for states
 abstract sig SenderState { seqNum: SequenceNumber }
 sig ReadyToSend extends SenderState {}
 sig WaitingForAck extends SenderState {}
 
 abstract sig ReceiverState { seqNum: SequenceNumber }
-one sig WaitingForPacket extends ReceiverState {}
+sig WaitingForPacket extends ReceiverState {}
 
 
 // Signatures for seqnums and packets
@@ -122,17 +134,44 @@ pred sender_rcvAck [t_pre, t_post: Timestep] {
   }
 }
 
-/* TODO:
-  * Add receiver functionality
-    - Receive (in)correct seqnum
-  * Add channel failure scenarios
-    - package dropping
-    - package reordering
-    - package duplication?
-    - package corruption?
-*/
+pred receiver_rcvPacket [t_pre, t_post: Timestep] {
+	// Keep this stuff the same
+  t_pre.buffer_in = t_post.buffer_in
+  //t_pre.buffer_out = t_post.buffer_out
+  t_pre.state_s = t_post.state_s
+  t_pre.state_s.seqNum = t_post.state_s.seqNum
+  //t_pre.state_r = t_post.state_r
+  //t_pre.state_r.seqNum = t_post.state_r.seqNum
+  //t_pre.channel_s_to_r = t_post.channel_s_to_r
+  //t_pre.channel_r_to_s = t_post.channel_r_to_s
+
+  // Precondition
+  not t_pre.channel_s_to_r.isEmpty
+  
+  // Postcondition
+  some p: DataPacket {
+    p = t_pre.channel_s_to_r.first
+    t_post.channel_s_to_r = t_pre.channel_s_to_r.rest
+    t_pre.state_r.seqNum = p.seqNum implies {
+      t_post.channel_r_to_s = t_pre.channel_r_to_s
+      t_post.buffer_out = t_pre.buffer_out.add[p.payload]
+      t_post.state_r.seqNum = t_pre.state_r.seqNum.next
+    }
+    t_pre.state_r.seqNum != p.seqNum implies {
+      some q: AckPacket {
+        t_post.channel_r_to_s = t_pre.channel_r_to_s.add[q]
+        q.seqNum = t_pre.state_r.seqNum.next
+      }
+      t_post.buffer_out = t_pre.buffer_out
+      t_post.state_r.seqNum = t_pre.state_r.seqNum
+    }
+  }
+}
 
 pred show [t_pre, t_post: Timestep] {
-  sender_send[t_pre,t_post]
+  receiver_rcvPacket[t_pre,t_post]
+  let p = t_pre.channel_s_to_r.first |
+  p.seqNum = t_pre.state_r.seqNum
 }
+
 run show for 5 but 2 Timestep
