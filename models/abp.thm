@@ -1,0 +1,95 @@
+<?xml version="1.0"?>
+<alloy>
+
+<view>
+
+<projection> <type name="Timestep"/> </projection>
+
+<defaultnode/>
+
+<defaultedge/>
+
+<node>
+   <type name="AckPacket"/>
+   <type name="DataPacket"/>
+   <type name="ReadyToSend"/>
+   <type name="Seq_0"/>
+   <type name="Seq_1"/>
+   <type name="String"/>
+   <type name="Timestep"/>
+   <type name="univ"/>
+   <type name="WaitingForAck"/>
+   <type name="WaitingForPacket"/>
+   <type name="ordering/Ord"/>
+   <set name="$data_arrives_eventually_t0" type="Timestep"/>
+   <set name="First" type="ordering/Ord"/>
+   <set name="Next" type="ordering/Ord"/>
+</node>
+
+<node hideunconnected="no">
+   <type name="seq/Int"/>
+   <set name="state_r" type="ReceiverState"/>
+   <set name="state_s" type="SenderState"/>
+</node>
+
+<node hideunconnected="no" shape="Lined Circle" color="Blue">
+   <type name="Packet"/>
+</node>
+
+<node hideunconnected="yes" shape="Parallelogram" color="Gray">
+   <type name="ReceiverState"/>
+   <type name="SenderState"/>
+</node>
+
+<node visible="no">
+   <type name="SequenceNumber"/>
+</node>
+
+<node visible="yes">
+   <type name="Int"/>
+</node>
+
+<node visible="yes" hideunconnected="yes">
+   <type name="Data"/>
+</node>
+
+<edge attribute="no">
+   <relation name="buffer_in"> <type name="Timestep"/> <type name="seq/Int"/> <type name="Data"/> </relation>
+   <relation name="buffer_out"> <type name="Timestep"/> <type name="seq/Int"/> <type name="Data"/> </relation>
+   <relation name="channel_r_to_s"> <type name="Timestep"/> <type name="seq/Int"/> <type name="AckPacket"/> </relation>
+   <relation name="channel_s_to_r"> <type name="Timestep"/> <type name="seq/Int"/> <type name="DataPacket"/> </relation>
+</edge>
+
+<edge color="Green" visible="no" merge="no" layout="no" attribute="yes" constraint="no" label="out">
+   <relation name="buffer_out"> <type name="seq/Int"/> <type name="Data"/> </relation>
+</edge>
+
+<edge color="Red" visible="no" merge="no" attribute="yes" constraint="no" label="s_to_r">
+   <relation name="channel_s_to_r"> <type name="seq/Int"/> <type name="DataPacket"/> </relation>
+</edge>
+
+<edge color="Yellow" visible="no" merge="no" attribute="yes" constraint="no" label="r_to_s">
+   <relation name="channel_r_to_s"> <type name="seq/Int"/> <type name="AckPacket"/> </relation>
+</edge>
+
+<edge visible="no" attribute="yes" constraint="no" label="">
+   <relation name="seqNum"> <type name="Packet"/> <type name="SequenceNumber"/> </relation>
+   <relation name="seqNum"> <type name="ReceiverState"/> <type name="SequenceNumber"/> </relation>
+</edge>
+
+<edge visible="no" merge="no" attribute="yes" constraint="no" label="">
+   <relation name="payload"> <type name="DataPacket"/> <type name="Data"/> </relation>
+   <relation name="seqNum"> <type name="SenderState"/> <type name="SequenceNumber"/> </relation>
+</edge>
+
+<edge visible="no" merge="no" constraint="no" label="">
+   <relation name="next"> <type name="SequenceNumber"/> <type name="SequenceNumber"/> </relation>
+</edge>
+
+<edge visible="no" merge="no" layout="no" attribute="yes" constraint="no" label="in">
+   <relation name="buffer_in"> <type name="seq/Int"/> <type name="Data"/> </relation>
+</edge>
+
+</view>
+
+</alloy>
