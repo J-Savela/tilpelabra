@@ -70,7 +70,7 @@ pred sender_send [t_pre, t_post: Timestep] {
   t_pre.acked = t_post.acked
   t_pre.buffer_out = t_post.buffer_out
   //t_pre.state_s = t_post.state_s
-  t_pre.state_s.seqNum = t_post.state_s.seqNum
+  //t_pre.state_s.seqNum = t_post.state_s.seqNum
   t_pre.state_r = t_post.state_r
   t_pre.state_r.seqNum = t_post.state_r.seqNum
   //t_pre.channel_s_to_r = t_post.channel_s_to_r
