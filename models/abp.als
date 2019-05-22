@@ -3,14 +3,14 @@ open util/ordering[Timestep]
 
 /* TODO:
   * Add channel failure scenarios
-    - package dropping
-    - package reordering
-    (- package duplication?)
+    - package dropping DONE
+    - package reordering DONE
+    - package duplication DONE
     (- package corruption?)
   * Which properties to check?
-    - data arrive in correct order
-    - no duplication of data
-    - no missing data
+    - data arrive in correct order DONE
+    - no duplication of data DONE
+    - no missing data DONE
     (- deadlock?)
     (- livelock?)
 */
@@ -242,7 +242,55 @@ pred channel_dropAck [t_pre, t_post: Timestep] {
     t_post.channel_r_to_s = t_pre.channel_r_to_s.delete[i]
   }
 }
+// ***************************************START************************************************
+pred channel_duplicateData [t_pre, t_post: Timestep] {
+	// Keep this stuff the same
+  t_pre.buffer_in = t_post.buffer_in
+  t_pre.sent = t_post.sent
+  t_pre.acked = t_post.acked
+  t_pre.buffer_out = t_post.buffer_out
+  t_pre.state_s = t_post.state_s
+  t_pre.state_s.seqNum = t_post.state_s.seqNum
+  t_pre.state_r = t_post.state_r
+  t_pre.state_r.seqNum = t_post.state_r.seqNum
+  //t_pre.channel_s_to_r = t_post.channel_s_to_r
+  t_pre.channel_r_to_s = t_post.channel_r_to_s
 
+  // Precondition
+  not t_pre.channel_s_to_r.isEmpty
+  
+  // Postcondition
+  some i: Int {
+    lt[i, #t_pre.channel_s_to_r]
+    lte[0, i]
+    t_post.channel_s_to_r = t_pre.channel_s_to_r.insert[i, t_pre.channel_s_to_r[i]]
+  }
+}
+
+pred channel_duplicateAck [t_pre, t_post: Timestep] {
+	// Keep this stuff the same
+  t_pre.buffer_in = t_post.buffer_in
+  t_pre.sent = t_post.sent
+  t_pre.acked = t_post.acked
+  t_pre.buffer_out = t_post.buffer_out
+  t_pre.state_s = t_post.state_s
+  t_pre.state_s.seqNum = t_post.state_s.seqNum
+  t_pre.state_r = t_post.state_r
+  t_pre.state_r.seqNum = t_post.state_r.seqNum
+  t_pre.channel_s_to_r = t_post.channel_s_to_r
+  //t_pre.channel_r_to_s = t_post.channel_r_to_s
+
+  // Precondition
+  not t_pre.channel_r_to_s.isEmpty
+  
+  // Postcondition
+  some i: Int {
+    lt[i, #t_pre.channel_r_to_s]
+    lte[0, i]
+    t_post.channel_r_to_s = t_pre.channel_r_to_s.insert[i, t_pre.channel_r_to_s[i]]
+  }
+}
+//*************************************STOP******************************************************
 pred channel_reorderData [t_pre, t_post: Timestep] {
 	// Keep this stuff the same
   t_pre.buffer_in = t_post.buffer_in
@@ -306,13 +354,19 @@ pred channel_reorderAck [t_pre, t_post: Timestep] {
 }
 
 
+fact no_redundant_packets  {
+  no disjoint p, q: AckPacket | p.seqNum = q.seqNum
+  no disjoint p, q: DataPacket | p.seqNum = q.seqNum and p.payload = q.payload
+}
+
+
 /*
 The traces fact constrains the timesteps to follow only the allowed transitions.
 The first formulation of data arriving eventually fails if the channel doesn't move
 anything and the sender keeps timing out. Without timeouts, no counterexample is found.
 */
-/*
-fact traces_reliable_channel {
+
+/*fact traces_reliable_channel {
   init[first]
   all t0: Timestep - last |
   let t1 = t0.next | 
@@ -320,8 +374,38 @@ fact traces_reliable_channel {
   sender_timeout[t0, t1] or
   sender_rcvAck[t0, t1] or
   receiver_rcvPacket[t0, t1]
+}*/
+
+fact traces_unreliable_channel_v1 {
+  init[first]
+  all t0: Timestep - last |
+  let t1 = t0.next | 
+  sender_send[t0, t1] or
+  sender_timeout[t0, t1] or
+  sender_rcvAck[t0, t1] or
+  receiver_rcvPacket[t0, t1] or
+  channel_dropData[t0,t1] or
+  channel_dropAck[t0,t1] or
+  channel_duplicateData[t0,t1] or
+  channel_duplicateAck[t0,t1]
 }
-*/
+
+/*fact traces_unreliable_channel_v2 {
+  init[first]
+  all t0: Timestep - last |
+  let t1 = t0.next | 
+  sender_send[t0, t1] or
+  sender_timeout[t0, t1] or
+  sender_rcvAck[t0, t1] or
+  receiver_rcvPacket[t0, t1] or
+  channel_dropData[t0,t1] or
+  channel_dropAck[t0,t1] or
+  channel_duplicateData[t0,t1] or
+  channel_duplicateAck[t0,t1] or
+  channel_reorderData[t0,t1] or
+  channel_reorderAck[t0,t1]
+}*/
+
 assert data_arrives_eventually_v1 {
   all t0: Timestep |
   some d: Data | 
@@ -337,15 +421,20 @@ progressing to the next state before the data has arrived and has been acked.
 
 assert data_arrives_eventually_v2 {
   all t: Timestep |
-  t.state_s = ReadyToSend implies
+  t.state_s in ReadyToSend implies
   #t.acked = #t.buffer_out
 }
 
-check data_arrives_eventually_v2 for 1
+check data_arrives_eventually_v2 for 4 SenderState, 2 ReceiverState, 
+2 SequenceNumber, 2 AckPacket, 2 Data, 4 DataPacket, 13 Timestep
 
-
-
-
+pred test {
+  #first.buffer_in.elems > 1
+  first.buffer_in[0] != first.buffer_in[1]
+  
+  some t: Timestep | #t.acked.elems > 1
+}
+run test for 7
 
 
 
@@ -353,19 +442,9 @@ check data_arrives_eventually_v2 for 1
 
 
 pred show {
-  some t0, t1, t2, t3: Timestep {
-    t0 = first
-    t1 = t0.next
-    t2  =t1.next
-    t3  =t2.next
-    init[t0]
-    sender_send[t0,t1]
-    receiver_rcvPacket[t1,t2]
-    sender_rcvAck[t2,t3]
-  }
-}
-pred show2 {
-  #ReceiverState > 1
+  #first.channel_s_to_r.elems > 1
+  first.channel_s_to_r[0] != first.channel_s_to_r[1]
+  first.next.channel_s_to_r = first.channel_s_to_r.insert[1, first.channel_s_to_r[1]]
 }
 
-run show for 15 but 4 Timestep
+run show for 6 but 2 Timestep
